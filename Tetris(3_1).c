@@ -25,6 +25,7 @@ int main(){
 		switch(menu()){
 		case MENU_PLAY: play(); break;
 		case MENU_RANK: rank(); break;
+		case MENU_R_PLAY: recommendedPlay(); break;
 		case MENU_EXIT: exit=1; break;
 		default: break;
 		}
@@ -496,11 +497,6 @@ void DrawShadow(int y, int x, int blockID,int blockRotate){
 	
 }
 
-
-void recommendedPlay(){
-	// user code
-}
-
 void insert(char nametmp[20], int scoretmp) { //링크드 리스트 핵심... 실습은 추가만 하는거라 insert만 구현합니다.
 	
 	Node *tmp = head;
@@ -809,7 +805,7 @@ int recommend(){
 	int ret;
 
 	
-	ret = recommendUsingTree(recRoot);
+	ret = modified_recommend(recRoot);
 
 
 	return ret;
@@ -846,7 +842,7 @@ int evalState(int lv, char f[HEIGHT][WIDTH], int r, int y, int x) {
 
 }
 
-int recommendUsingTree(RecNode *root) {
+int modified_recommend(RecNode *root) {
 	int r, x, y, rBoundary, lBoundary;
 	int h, w;
 	int eval;
@@ -855,6 +851,12 @@ int recommendUsingTree(RecNode *root) {
 	int recommended = 0;
 	int i = 0;
 	int lv = root->lv + 1;
+	///
+	int minimum[1000] = {0,};
+	int copy[1000] = {0,};
+	int min1 = 10000;
+	int min2 = 10000;
+	///
 	RecNode **c = root->c;
 	
 	////////////////
@@ -920,35 +922,51 @@ int recommendUsingTree(RecNode *root) {
 				continue;
 			}
 
-
+			
 			c[i]->score = root->score + evalState(lv, c[i]->f, r, y, x);
-
+			/////
+			/*
+			if(lv==0){
+				
+				minimum[i] = c[i]->score;
+				copy[i] = c[i]->score;	
+				
+			}
+			*/
+			/////
+			/////////////////////////////del
+			
 			if (lv < VISIBLE_BLOCKS - 1) {
-
-				eval = recommendUsingTree(c[i]);
-
+				if(c[i]->score > 10){
+					
+					eval = modified_recommend(c[i]);
+						
+				}
+				else if(lv==0 && c[i]->score<=10){
+					
+					continue;
+					
+				}
+				
 			}
-
 			else {
-
 				eval = c[i]->score;
-
 			}
-
 			if (max<eval) {
-
 				recommended = 1;
 				max = eval;
 				solR = r;
 				solY = y;
 				solX = x;
-
-			}
-
+			}	
+				
+			
+			/////////////////////del
+			
 		}
 
 	}
-
+	
 	if (lv == 0 && recommended) {
 		recommendR = solR;
 		recommendY = solY;
@@ -958,4 +976,59 @@ int recommendUsingTree(RecNode *root) {
 	return max;
 
 }
-////////////////////////////
+
+///////////////////////////
+
+void updateField(int sig){
+	int i;
+	if(!CheckToMove(field,nextBlock[0],blockRotate,blockY,blockX)) gameOver=1;
+	else{
+		score+=AddBlockToField(field,nextBlock[0],recommendR,recommendY,recommendX);
+		score+=DeleteLine(field);
+		blockY=-1;blockX=(WIDTH/2)-2;blockRotate=0;
+		for(i=0;i<VISIBLE_BLOCKS-1;++i){
+			nextBlock[i] = nextBlock[i+1];
+		}
+		nextBlock[VISIBLE_BLOCKS-1] = rand()%7;
+		recommend();
+		DrawNextBlock(nextBlock);
+		PrintScore(score);
+		DrawField();
+		DrawBlockWithFeatures(blockY,blockX,nextBlock[0],blockRotate);
+		timed_out=0;
+	}
+}
+
+void recommendedPlay(){
+	int command;
+	clear();
+	act.sa_handler = updateField;
+	sigaction(SIGALRM,&act,&oact);
+	InitTetris();
+	do{
+		if(timed_out==0){
+			alarm(1);
+			timed_out=1;
+		}
+
+		command = GetCommand();
+		if(command=='q' || command=='Q'){
+			alarm(0);
+			DrawBox(HEIGHT/2-1,WIDTH/2-5,1,10);
+			move(HEIGHT/2,WIDTH/2-4);
+			printw("Good-bye!!");
+			refresh();
+			getch();
+
+			return;
+		}
+	}while(!gameOver);
+
+	alarm(0);
+	getch();
+	DrawBox(HEIGHT/2-1,WIDTH/2-5,1,10);
+	move(HEIGHT/2,WIDTH/2-4);
+	printw("GameOver!!");
+	refresh();
+	getch();
+}
